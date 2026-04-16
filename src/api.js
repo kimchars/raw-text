@@ -1,6 +1,6 @@
 export async function analyzeJudgment(text, mode) {
   let response
-  const endpoint = 'http://localhost:3001/analyze'
+  const endpoint = '/analyze'
 
   try {
     response = await fetch(endpoint, {
