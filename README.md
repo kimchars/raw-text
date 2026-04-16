@@ -1,16 +1,63 @@
-# React + Vite
+# 판결문 분석 MVP
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+판결문 텍스트를 입력하면 사건 구조를 정리하고, 핵심 쟁점과 쉬운 설명을 생성해 주는 React + Express 기반의 리걸테크 MVP입니다.
 
-Currently, two official plugins are available:
+## 프로젝트 소개
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+이 프로젝트는 판결문 텍스트를 입력받아 다음 정보를 한 화면에서 확인할 수 있도록 구성되어 있습니다.
 
-## React Compiler
+- 사건 구조화 정보
+- 핵심 쟁점 3개
+- 한 줄 요약과 3줄 쉬운 설명
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 주요 기능
 
-## Expanding the ESLint configuration
+- 판결문 분석
+- 사건번호, 사건종류, 사건개요, 원고 주장, 피고 주장, 법원 판단, 주문 구조화
+- 학생 / 일반인 모드별 설명
+- 핵심 쟁점 정리
+- 쉬운 설명 생성
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## 설치 방법
+
+```bash
+npm install
+```
+
+## .env 설정 방법
+
+프로젝트 루트에 `.env` 파일을 만들고 아래처럼 Gemini API 키를 넣어주세요.
+
+```env
+GEMINI_API_KEY=your_gemini_api_key_here
+```
+
+예시는 `.env.example` 파일을 참고하면 됩니다.
+
+## 실행 방법
+
+1. 서버 실행
+
+```bash
+npm run server
+```
+
+2. 프런트 실행
+
+```bash
+npm run dev
+```
+
+실행 후 브라우저에서 Vite가 출력한 주소로 접속하면 됩니다.
+
+## GEMINI_API_KEY 설명
+
+- `GEMINI_API_KEY`는 Gemini API 호출에 필요한 인증 키입니다.
+- 이 키는 서버에서만 사용됩니다.
+- `.env` 파일은 Git에 포함되지 않도록 설정되어 있습니다.
+
+## 주의사항
+
+- Gemini API는 quota 제한이 있을 수 있습니다.
+- 무료 티어에서는 `429 quota exceeded` 또는 `503 high demand` 오류가 발생할 수 있습니다.
+- 호출량이 많으면 잠시 후 다시 시도해야 할 수 있습니다.
