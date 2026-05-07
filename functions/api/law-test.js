@@ -4,6 +4,36 @@ function normalizeString(value) {
   return typeof value === 'string' ? value.trim() : ''
 }
 
+function normalizeBooleanParam(value) {
+  return ['1', 'true', 'yes', 'on'].includes(normalizeString(value).toLowerCase())
+}
+
+function maskKey(value) {
+  const normalized = normalizeString(value)
+
+  if (!normalized) {
+    return null
+  }
+
+  if (normalized.length <= 4) {
+    return `${normalized.slice(0, 1)}***${normalized.slice(-1)}`
+  }
+
+  return `${normalized.slice(0, 2)}***${normalized.slice(-2)}`
+}
+
+function buildDebugInfo(env) {
+  const geminiApiKey = normalizeString(env?.GEMINI_API_KEY)
+  const lawOpenApiKey = normalizeString(env?.LAW_OPEN_API_KEY)
+
+  return {
+    geminiKeyExists: Boolean(geminiApiKey),
+    lawKeyExists: Boolean(lawOpenApiKey),
+    lawKeyLength: lawOpenApiKey.length || 0,
+    lawKeyMasked: maskKey(lawOpenApiKey),
+  }
+}
+
 function json(data, init = {}) {
   return new Response(JSON.stringify(data, null, 2), {
     status: init.status || 200,
@@ -50,7 +80,9 @@ function buildCause(error) {
 export async function onRequestGet(context) {
   const requestUrl = new URL(context.request.url)
   const query = normalizeString(requestUrl.searchParams.get('query')) || '손해배상'
+  const debug = normalizeBooleanParam(requestUrl.searchParams.get('debug'))
   const apiKey = normalizeString(context.env?.LAW_OPEN_API_KEY)
+  const debugInfo = debug ? buildDebugInfo(context.env) : undefined
 
   if (!apiKey) {
     return json(
@@ -58,6 +90,7 @@ export async function onRequestGet(context) {
         status: 500,
         message: 'LAW_OPEN_API_KEY is not set',
         cause: null,
+        ...(debug ? { debug: debugInfo } : {}),
       },
       { status: 500 },
     )
@@ -89,6 +122,7 @@ export async function onRequestGet(context) {
           status: response.status,
           message: `law.go.kr request failed: HTTP ${response.status} ${response.statusText}`,
           cause: rawText.slice(0, 500) || null,
+          ...(debug ? { debug: debugInfo } : {}),
         },
         { status: response.status },
       )
@@ -104,6 +138,7 @@ export async function onRequestGet(context) {
           status: 502,
           message: 'law.go.kr returned non-JSON response',
           cause: rawText.slice(0, 500) || error.message,
+          ...(debug ? { debug: debugInfo } : {}),
         },
         { status: 502 },
       )
@@ -119,6 +154,7 @@ export async function onRequestGet(context) {
       query,
       totalCount: Number(payload?.PrecSearch?.totalCnt || 0),
       items: rawItems.map(normalizeSearchItem).filter((item) => item.id).slice(0, 3),
+      ...(debug ? { debug: debugInfo } : {}),
     })
   } catch (error) {
     return json(
@@ -126,6 +162,7 @@ export async function onRequestGet(context) {
         status: 502,
         message: 'law.go.kr fetch failed',
         cause: buildCause(error),
+        ...(debug ? { debug: debugInfo } : {}),
       },
       { status: 502 },
     )
