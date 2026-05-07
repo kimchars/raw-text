@@ -15,10 +15,52 @@ def normalize_string(value):
     return value.strip() if isinstance(value, str) else ""
 
 
+def normalize_boolean(value):
+    return normalize_string(value).lower() in {"1", "true", "yes", "on"}
+
+
+def mask_key(value):
+    normalized = normalize_string(value)
+
+    if not normalized:
+        return ""
+
+    if len(normalized) <= 4:
+        return f"{normalized[:1]}***{normalized[-1:]}"
+
+    return f"{normalized[:2]}***{normalized[-2:]}"
+
+
+def mask_oc_in_url(prepared_url, api_key):
+    return prepared_url.replace(api_key, mask_key(api_key))
+
+
+def run_test_case(api_key, params):
+    response = requests.get(
+        LAW_OPEN_API_BASE_URL,
+        params={
+            "OC": api_key,
+            **params,
+        },
+        timeout=20,
+    )
+    prepared = response.request.url if response.request else LAW_OPEN_API_BASE_URL
+    body_preview = response.text[:300] if response.text else ""
+
+    return {
+        "status": response.status_code,
+        "requestUrl": mask_oc_in_url(prepared, api_key),
+        "bodyPreview": body_preview,
+        "ok": response.ok,
+        "params": params,
+    }
+
+
 @app.get("/api/law-test")
 def law_test():
     query = normalize_string(request.args.get("query")) or "자동차관리법"
     target = normalize_string(request.args.get("target")) or "eflaw"
+    debug = normalize_boolean(request.args.get("debug"))
     api_key = normalize_string(os.environ.get("LAW_OPEN_API_KEY"))
 
     if not api_key:
@@ -30,35 +72,55 @@ def law_test():
             }
         ), 500
 
+    test_cases = [
+        {"target": target, "query": query},
+        {"target": target, "type": "XML", "query": query},
+        {"target": target, "type": "JSON", "query": query},
+        {"target": target, "LM": query},
+        {"target": target, "type": "JSON", "LM": query},
+    ]
+
     try:
-        response = requests.get(
-            LAW_OPEN_API_BASE_URL,
-            params={
-                "OC": api_key,
-                "target": target,
+        results = [run_test_case(api_key, params) for params in test_cases]
+        first_success = next((result for result in results if result["ok"]), None)
+
+        if first_success:
+            payload = {
+                "status": first_success["status"],
                 "query": query,
-            },
-            timeout=20,
-        )
-        body_preview = response.text[:500] if response.text else ""
-
-        if response.ok:
-            return jsonify(
-                {
-                    "status": response.status_code,
-                    "query": query,
-                    "target": target,
-                    "bodyPreview": body_preview,
-                }
-            ), response.status_code
-
-        return jsonify(
-            {
-                "status": response.status_code,
-                "message": f"law.go.kr request failed: HTTP {response.status_code}",
-                "bodyPreview": body_preview,
+                "target": target,
+                "bodyPreview": first_success["bodyPreview"],
             }
-        ), response.status_code
+
+            if debug:
+                payload["debug"] = [
+                    {
+                        "requestUrl": result["requestUrl"],
+                        "httpStatus": result["status"],
+                        "bodyPreview": result["bodyPreview"],
+                    }
+                    for result in results
+                ]
+
+            return jsonify(payload), first_success["status"]
+
+        payload = {
+            "status": 502,
+            "message": "No law.go.kr parameter combination returned a successful response",
+            "bodyPreview": results[-1]["bodyPreview"] if results else None,
+        }
+
+        if debug:
+            payload["debug"] = [
+                {
+                    "requestUrl": result["requestUrl"],
+                    "httpStatus": result["status"],
+                    "bodyPreview": result["bodyPreview"],
+                }
+                for result in results
+            ]
+
+        return jsonify(payload), 502
     except requests.RequestException as error:
         body_preview = ""
 
