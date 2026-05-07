@@ -153,12 +153,12 @@ export async function onRequestGet(context) {
     const responseStatusText = response.statusText
 
     if (!response.ok) {
-      if (responseStatus === 522) {
+      if (responseStatus === 520 || responseStatus === 522) {
         return json(
           {
             status: 502,
             message: '법제처 API 연결 실패: Cloudflare outbound IP 또는 원격 연결 정책 문제 가능성',
-            errorMessage: 'Upstream returned HTTP 522 while connecting to law.go.kr',
+            errorMessage: `Upstream returned HTTP ${responseStatus} while connecting to law.go.kr`,
             ...(debug
               ? {
                   debug: {
