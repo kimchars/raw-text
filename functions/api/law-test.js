@@ -113,7 +113,7 @@ function buildCause(error) {
 
 export async function onRequestGet(context) {
   const requestUrl = new URL(context.request.url)
-  const query = normalizeString(requestUrl.searchParams.get('query')) || '손해배상'
+  const query = normalizeString(requestUrl.searchParams.get('query')) || '자동차관리법'
   const debug = normalizeBooleanParam(requestUrl.searchParams.get('debug'))
   const apiKey = normalizeString(context.env?.LAW_OPEN_API_KEY)
   const debugInfo = debug ? buildDebugInfo(context.env) : undefined
@@ -132,12 +132,8 @@ export async function onRequestGet(context) {
 
   const upstreamUrl = new URL(`${LAW_OPEN_API_BASE_URL}/lawSearch.do`)
   upstreamUrl.searchParams.set('OC', apiKey)
-  upstreamUrl.searchParams.set('type', 'JSON')
-  upstreamUrl.searchParams.set('target', 'prec')
+  upstreamUrl.searchParams.set('target', 'eflaw')
   upstreamUrl.searchParams.set('query', query)
-  upstreamUrl.searchParams.set('search', '1')
-  upstreamUrl.searchParams.set('display', '3')
-  upstreamUrl.searchParams.set('page', '1')
   const maskedUpstreamUrl = maskOcInUrl(upstreamUrl.toString())
 
   try {
