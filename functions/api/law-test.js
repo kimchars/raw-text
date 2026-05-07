@@ -1,4 +1,4 @@
-const LAW_OPEN_API_BASE_URL = 'https://www.law.go.kr/DRF'
+const LAW_OPEN_API_BASE_URL = 'http://www.law.go.kr/DRF'
 
 function normalizeString(value) {
   return typeof value === 'string' ? value.trim() : ''
