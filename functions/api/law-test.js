@@ -1,4 +1,4 @@
-const LAW_OPEN_API_BASE_URL = 'http://www.law.go.kr/DRF'
+const LAW_OPEN_API_BASE_URL = 'https://www.law.go.kr/DRF'
 
 function normalizeString(value) {
   return typeof value === 'string' ? value.trim() : ''
@@ -153,6 +153,27 @@ export async function onRequestGet(context) {
     const responseStatusText = response.statusText
 
     if (!response.ok) {
+      if (responseStatus === 522) {
+        return json(
+          {
+            status: 502,
+            message: '법제처 API 연결 실패: Cloudflare outbound IP 또는 원격 연결 정책 문제 가능성',
+            errorMessage: 'Upstream returned HTTP 522 while connecting to law.go.kr',
+            ...(debug
+              ? {
+                  debug: {
+                    ...debugInfo,
+                    requestUrl: maskedUpstreamUrl,
+                    httpStatus: responseStatus,
+                    bodyPreview,
+                  },
+                }
+              : {}),
+          },
+          { status: 502 },
+        )
+      }
+
       return json(
         {
           status: responseStatus,
