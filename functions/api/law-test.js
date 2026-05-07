@@ -8,6 +8,21 @@ function normalizeBooleanParam(value) {
   return ['1', 'true', 'yes', 'on'].includes(normalizeString(value).toLowerCase())
 }
 
+function maskOcInUrl(url) {
+  try {
+    const parsed = new URL(url)
+    const oc = normalizeString(parsed.searchParams.get('OC'))
+
+    if (oc) {
+      parsed.searchParams.set('OC', maskKey(oc))
+    }
+
+    return parsed.toString()
+  } catch {
+    return url
+  }
+}
+
 function maskKey(value) {
   const normalized = normalizeString(value)
 
@@ -32,6 +47,25 @@ function buildDebugInfo(env) {
     lawKeyLength: lawOpenApiKey.length || 0,
     lawKeyMasked: maskKey(lawOpenApiKey),
   }
+}
+
+function collectItemLocations(payload) {
+  const candidates = [
+    ['PrecSearch.prec', payload?.PrecSearch?.prec],
+    ['PrecSearch.items', payload?.PrecSearch?.items],
+    ['prec', payload?.prec],
+    ['items', payload?.items],
+    ['result.prec', payload?.result?.prec],
+    ['result.items', payload?.result?.items],
+  ]
+
+  return candidates
+    .filter(([, value]) => typeof value !== 'undefined')
+    .map(([path, value]) => ({
+      path,
+      type: Array.isArray(value) ? 'array' : typeof value,
+      count: Array.isArray(value) ? value.length : value && typeof value === 'object' ? 1 : 0,
+    }))
 }
 
 function json(data, init = {}) {
@@ -104,6 +138,7 @@ export async function onRequestGet(context) {
   upstreamUrl.searchParams.set('search', '1')
   upstreamUrl.searchParams.set('display', '3')
   upstreamUrl.searchParams.set('page', '1')
+  const maskedUpstreamUrl = maskOcInUrl(upstreamUrl.toString())
 
   try {
     const response = await fetch(upstreamUrl.toString(), {
@@ -115,16 +150,28 @@ export async function onRequestGet(context) {
     })
 
     const rawText = await response.text()
+    const bodyPreview = rawText.slice(0, 500)
+    const responseStatus = response.status
+    const responseStatusText = response.statusText
 
     if (!response.ok) {
       return json(
         {
-          status: response.status,
-          message: `law.go.kr request failed: HTTP ${response.status} ${response.statusText}`,
-          cause: rawText.slice(0, 500) || null,
-          ...(debug ? { debug: debugInfo } : {}),
+          status: responseStatus,
+          message: `law.go.kr request failed: HTTP ${responseStatus} ${responseStatusText}`,
+          cause: bodyPreview || null,
+          ...(debug
+            ? {
+                debug: {
+                  ...debugInfo,
+                  requestUrl: maskedUpstreamUrl,
+                  httpStatus: responseStatus,
+                  bodyPreview,
+                },
+              }
+            : {}),
         },
-        { status: response.status },
+        { status: responseStatus },
       )
     }
 
@@ -137,8 +184,17 @@ export async function onRequestGet(context) {
         {
           status: 502,
           message: 'law.go.kr returned non-JSON response',
-          cause: rawText.slice(0, 500) || error.message,
-          ...(debug ? { debug: debugInfo } : {}),
+          cause: bodyPreview || error.message,
+          ...(debug
+            ? {
+                debug: {
+                  ...debugInfo,
+                  requestUrl: maskedUpstreamUrl,
+                  httpStatus: responseStatus,
+                  bodyPreview,
+                },
+              }
+            : {}),
         },
         { status: 502 },
       )
@@ -154,7 +210,18 @@ export async function onRequestGet(context) {
       query,
       totalCount: Number(payload?.PrecSearch?.totalCnt || 0),
       items: rawItems.map(normalizeSearchItem).filter((item) => item.id).slice(0, 3),
-      ...(debug ? { debug: debugInfo } : {}),
+      ...(debug
+        ? {
+            debug: {
+              ...debugInfo,
+              requestUrl: maskedUpstreamUrl,
+              httpStatus: responseStatus,
+              bodyPreview,
+              responseKeys: Object.keys(payload || {}),
+              itemLocations: collectItemLocations(payload),
+            },
+          }
+        : {}),
     })
   } catch (error) {
     return json(
@@ -162,7 +229,14 @@ export async function onRequestGet(context) {
         status: 502,
         message: 'law.go.kr fetch failed',
         cause: buildCause(error),
-        ...(debug ? { debug: debugInfo } : {}),
+        ...(debug
+          ? {
+              debug: {
+                ...debugInfo,
+                requestUrl: maskedUpstreamUrl,
+              },
+            }
+          : {}),
       },
       { status: 502 },
     )
