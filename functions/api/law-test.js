@@ -137,6 +137,8 @@ export async function onRequestGet(context) {
   const maskedUpstreamUrl = maskOcInUrl(upstreamUrl.toString())
 
   try {
+    // Note: law.go.kr API access may depend on registered source IP/domain.
+    // Cloudflare Pages Functions does not provide a fixed outbound IP, which can cause auth verification failures.
     const response = await fetch(upstreamUrl.toString(), {
       method: 'GET',
       headers: {
@@ -176,11 +178,13 @@ export async function onRequestGet(context) {
     try {
       payload = JSON.parse(rawText)
     } catch (error) {
+      const xmlErrorMessage = bodyPreview || error.message
+
       return json(
         {
           status: 502,
-          message: 'law.go.kr returned non-JSON response',
-          cause: bodyPreview || error.message,
+          message: '법제처 API 인증 검증 실패: 등록된 도메인/IP 문제 가능성',
+          errorMessage: xmlErrorMessage,
           ...(debug
             ? {
                 debug: {
