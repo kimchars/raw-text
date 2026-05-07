@@ -58,8 +58,8 @@ def run_test_case(api_key, params):
 
 @app.get("/api/law-test")
 def law_test():
-    query = normalize_string(request.args.get("query")) or "자동차관리법"
-    target = normalize_string(request.args.get("target")) or "eflaw"
+    query = normalize_string(request.args.get("query")) or "손해배상"
+    target = normalize_string(request.args.get("target")) or "prec"
     debug = normalize_boolean(request.args.get("debug"))
     api_key = normalize_string(os.environ.get("LAW_OPEN_API_KEY"))
 
@@ -76,8 +76,8 @@ def law_test():
         {"target": target, "query": query},
         {"target": target, "type": "XML", "query": query},
         {"target": target, "type": "JSON", "query": query},
-        {"target": target, "LM": query},
-        {"target": target, "type": "JSON", "LM": query},
+        {"target": target, "search": "2", "query": query},
+        {"target": target, "type": "JSON", "search": "2", "query": query},
     ]
 
     try:
